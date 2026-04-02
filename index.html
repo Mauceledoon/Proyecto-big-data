@@ -774,7 +774,7 @@
         promedio = numericGrades.reduce((a,b)=>a+parseFloat(b.value),0)/numericGrades.length;
       }
 
-      const aprobado = !isNaN(promedio) && promedio >= 6;
+      const aprobado = !isNaN(promedio) && promedio >= 7;
       const promedioStr = isNaN(promedio) ? '—' : promedio.toFixed(1);
 
       const otherRows = otherCols.map(c =>
