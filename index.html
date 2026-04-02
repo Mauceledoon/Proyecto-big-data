@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sistema de Calificaciones</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0f1e;
+    --surface: #111827;
+    --surface2: #1a2234;
+    --border: #1e2d45;
+    --accent: #00e5ff;
+    --accent2: #7c3aed;
+    --accent3: #10b981;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --danger: #f43f5e;
+    --glow: 0 0 30px rgba(0,229,255,0.15);
+  }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glowing orbs */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px;
+    right: -200px;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(124,58,237,0.12) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .orb2 {
+    position: fixed;
+    bottom: -200px;
+    left: -100px;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(0,229,255,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 56px;
+    animation: fadeDown 0.7s ease both;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(0,229,255,0.08);
+    border: 1px solid rgba(0,229,255,0.2);
+    padding: 6px 16px;
+    border-radius: 100px;
+    margin-bottom: 24px;
+  }
+
+  .badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s ease infinite;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 6vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -1px;
+    margin-bottom: 16px;
+  }
+
+  h1 span {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 1rem;
+    font-weight: 400;
+    max-width: 420px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    padding: 40px;
+    text-align: center;
+    background: rgba(255,255,255,0.02);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 32px;
+    animation: fadeUp 0.7s 0.1s ease both;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .upload-zone::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(0,229,255,0.05), rgba(124,58,237,0.05));
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    box-shadow: var(--glow), inset 0 0 40px rgba(0,229,255,0.03);
+  }
+
+  .upload-zone:hover::after { opacity: 1; }
+
+  .upload-icon {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  .upload-zone h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .upload-zone p {
+    font-size: 0.85rem;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+  }
+
+  #fileInput { display: none; }
+
+  .file-loaded {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    background: rgba(16,185,129,0.1);
+    border: 1px solid rgba(16,185,129,0.3);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 32px;
+    animation: fadeUp 0.4s ease both;
+  }
+
+  .file-loaded.show { display: flex; }
+
+  .file-loaded .icon { font-size: 1.5rem; }
+
+  .file-loaded strong {
+    display: block;
+    font-size: 0.95rem;
+    color: var(--accent3);
+  }
+
+  .file-loaded span {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* Search */
+  .search-section {
+    animation: fadeUp 0.7s 0.2s ease both;
+    margin-bottom: 40px;
+  }
+
+  .search-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  .search-wrapper {
+    position: relative;
+    display: flex;
+    gap: 12px;
+  }
+
+  .search-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px 16px 52px;
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    color: var(--text);
+    transition: all 0.3s ease;
+    outline: none;
+  }
+
+  .search-input::placeholder { color: var(--muted); }
+
+  .search-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,229,255,0.1);
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 1.1rem;
+    pointer-events: none;
+  }
+
+  .btn-search {
+    background: linear-gradient(135deg, var(--accent), #0891b2);
+    color: #000;
+    border: none;
+    border-radius: 12px;
+    padding: 16px 28px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+  }
+
+  .btn-search:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,229,255,0.3);
+  }
+
+  .btn-search:active { transform: translateY(0); }
+
+  /* Suggestions */
+  .suggestions {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 88px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    z-index: 10;
+    display: none;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+
+  .suggestions.show { display: block; }
+
+  .suggestion-item {
+    padding: 12px 20px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .suggestion-item:hover {
+    background: rgba(0,229,255,0.08);
+    color: var(--accent);
+  }
+
+  .suggestion-item::before {
+    content: '→';
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
+  /* Results */
+  #results { animation: fadeUp 0.5s ease both; }
+
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+
+  .result-header {
+    background: linear-gradient(135deg, rgba(0,229,255,0.1), rgba(124,58,237,0.1));
+    border-bottom: 1px solid var(--border);
+    padding: 28px 32px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .avatar {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .result-header h2 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .result-meta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .meta-chip {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    background: rgba(255,255,255,0.05);
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+
+  /* Grades grid */
+  .grades-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 1px;
+    background: var(--border);
+  }
+
+  .grade-cell {
+    background: var(--surface);
+    padding: 20px;
+    text-align: center;
+    transition: background 0.2s;
+  }
+
+  .grade-cell:hover { background: var(--surface2); }
+
+  .grade-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .grade-value {
+    font-size: 1.8rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .grade-value.high { color: var(--accent3); }
+  .grade-value.mid { color: #f59e0b; }
+  .grade-value.low { color: var(--danger); }
+  .grade-value.text-val { font-size: 1rem; color: var(--text); }
+
+  /* Promedio banner */
+  .promedio-banner {
+    padding: 24px 32px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: gap;
+    gap: 12px;
+  }
+
+  .promedio-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--muted);
+  }
+
+  .promedio-val {
+    font-size: 2.5rem;
+    font-weight: 800;
+  }
+
+  .status-badge {
+    padding: 8px 20px;
+    border-radius: 100px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  .status-badge.aprobado {
+    background: rgba(16,185,129,0.15);
+    color: var(--accent3);
+    border: 1px solid rgba(16,185,129,0.3);
+  }
+
+  .status-badge.reprobado {
+    background: rgba(244,63,94,0.15);
+    color: var(--danger);
+    border: 1px solid rgba(244,63,94,0.3);
+  }
+
+  /* Extra data table */
+  .extra-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+
+  .extra-table td {
+    padding: 14px 32px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .extra-table td:first-child {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    width: 40%;
+  }
+
+  .extra-table tr:last-child td { border-bottom: none; }
+
+  /* No results */
+  .no-results {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+
+  .no-results .emoji { font-size: 3rem; margin-bottom: 16px; display: block; }
+  .no-results p { font-size: 1rem; }
+
+  /* Stats bar */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+    animation: fadeUp 0.7s 0.15s ease both;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .stat-num {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--accent);
+    display: block;
+  }
+
+  .stat-lbl {
+    font-size: 0.75rem;
+    font-family: 'DM Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* Animations */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* Mobile */
+  @media (max-width: 600px) {
+    .search-wrapper { flex-direction: column; }
+    .btn-search { width: 100%; }
+    .suggestions { right: 0; }
+    .result-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .promedio-banner { flex-direction: column; align-items: flex-start; }
+    .stats-bar { grid-template-columns: 1fr; }
+    .grades-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="orb2"></div>
+
+<div class="container">
+  <header>
+    <div class="badge">Big Data · Proyecto Final</div>
+    <h1>Sistema de<br/><span>Calificaciones</span></h1>
+    <p class="subtitle">Consulta el expediente académico de cualquier alumno al instante.</p>
+  </header>
+
+  <!-- Upload -->
+  <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+    <span class="upload-icon">📊</span>
+    <h3>Cargar archivo Excel</h3>
+    <p>Haz clic o arrastra tu archivo .xlsx / .xls aquí</p>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv"/>
+  </div>
+
+  <div class="file-loaded" id="fileLoaded">
+    <span class="icon">✅</span>
+    <div>
+      <strong id="fileName">archivo.xlsx</strong>
+      <span id="fileStats">0 registros cargados</span>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar" id="statsBar" style="display:none">
+    <div class="stat-card">
+      <span class="stat-num" id="statTotal">0</span>
+      <span class="stat-lbl">Alumnos</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-num" id="statAprobados">0</span>
+      <span class="stat-lbl">Aprobados</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-num" id="statPromedio">0</span>
+      <span class="stat-lbl">Promedio Gral.</span>
+    </div>
+  </div>
+
+  <!-- Search -->
+  <div class="search-section">
+    <span class="search-label">Buscar alumno</span>
+    <div class="search-wrapper" style="position:relative">
+      <span class="search-icon">🔍</span>
+      <input
+        type="text"
+        id="searchInput"
+        class="search-input"
+        placeholder="Escribe el nombre del alumno..."
+        autocomplete="off"
+        disabled
+      />
+      <div class="suggestions" id="suggestions"></div>
+      <button class="btn-search" id="btnSearch" onclick="buscar()">Buscar</button>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="results"></div>
+</div>
+
+<script>
+  let data = [];
+  let headers = [];
+
+  // Upload handling
+  const fileInput = document.getElementById('fileInput');
+  const uploadZone = document.getElementById('uploadZone');
+
+  uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+  uploadZone.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+  });
+
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) processFile(e.target.files[0]);
+  });
+
+  function processFile(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const wb = XLSX.read(e.target.result, { type: 'binary' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      if (raw.length < 2) return alert('El archivo parece vacío o sin datos.');
+
+      headers = raw[0].map(h => String(h).trim());
+      data = raw.slice(1)
+        .filter(r => r.some(c => c !== undefined && c !== ''))
+        .map(r => {
+          const obj = {};
+          headers.forEach((h, i) => obj[h] = r[i] !== undefined ? r[i] : '');
+          return obj;
+        });
+
+      // Show UI
+      document.getElementById('fileLoaded').classList.add('show');
+      document.getElementById('uploadZone').style.display = 'none';
+      document.getElementById('fileName').textContent = file.name;
+      document.getElementById('fileStats').textContent = `${data.length} registros cargados`;
+      document.getElementById('searchInput').disabled = false;
+      document.getElementById('searchInput').focus();
+      showStats();
+    };
+    reader.readAsBinaryString(file);
+  }
+
+  // Detect name column
+  function getNameCol() {
+    const candidates = ['nombre', 'alumno', 'estudiante', 'name', 'apellido', 'nombre_completo', 'full_name'];
+    return headers.find(h => candidates.some(c => h.toLowerCase().includes(c))) || headers[0];
+  }
+
+  // Detect grade columns (numeric)
+  function getGradeCols() {
+    if (data.length === 0) return [];
+    const gradeKeywords = ['calificacion','calif','nota','parcial','examen','materia','unidad','promedio','final','score','grade'];
+    return headers.filter(h => {
+      const lh = h.toLowerCase();
+      return gradeKeywords.some(k => lh.includes(k)) ||
+        data.slice(0, 5).some(r => typeof r[h] === 'number' || (!isNaN(parseFloat(r[h])) && r[h] !== ''));
+    });
+  }
+
+  function showStats() {
+    const statsBar = document.getElementById('statsBar');
+    statsBar.style.display = 'grid';
+    document.getElementById('statTotal').textContent = data.length;
+
+    const gradeCols = getGradeCols();
+    let aprobados = 0, promedioSum = 0, count = 0;
+    data.forEach(r => {
+      const vals = gradeCols.map(c => parseFloat(r[c])).filter(v => !isNaN(v));
+      if (vals.length) {
+        const prom = vals.reduce((a,b)=>a+b,0)/vals.length;
+        promedioSum += prom;
+        count++;
+        if (prom >= 6) aprobados++;
+      }
+    });
+    document.getElementById('statAprobados').textContent = aprobados;
+    document.getElementById('statPromedio').textContent = count ? (promedioSum/count).toFixed(1) : '—';
+  }
+
+  // Autocomplete
+  document.getElementById('searchInput').addEventListener('input', function() {
+    const q = this.value.trim().toLowerCase();
+    const nameCol = getNameCol();
+    const sug = document.getElementById('suggestions');
+    if (!q || q.length < 2) { sug.classList.remove('show'); return; }
+
+    const matches = data.filter(r => String(r[nameCol]).toLowerCase().includes(q)).slice(0, 6);
+    if (!matches.length) { sug.classList.remove('show'); return; }
+
+    sug.innerHTML = matches.map(r =>
+      `<div class="suggestion-item" onclick="selectSuggestion('${String(r[nameCol]).replace(/'/g,"\\'")}')">
+        ${r[nameCol]}
+      </div>`
+    ).join('');
+    sug.classList.add('show');
+  });
+
+  document.getElementById('searchInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') buscar();
+    if (e.key === 'Escape') document.getElementById('suggestions').classList.remove('show');
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.search-wrapper')) document.getElementById('suggestions').classList.remove('show');
+  });
+
+  function selectSuggestion(name) {
+    document.getElementById('searchInput').value = name;
+    document.getElementById('suggestions').classList.remove('show');
+    buscar();
+  }
+
+  function gradeClass(v) {
+    if (v >= 9) return 'high';
+    if (v >= 7) return 'mid';
+    return 'low';
+  }
+
+  function buscar() {
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    document.getElementById('suggestions').classList.remove('show');
+    if (!q) return;
+    if (!data.length) { alert('Primero carga tu archivo Excel.'); return; }
+
+    const nameCol = getNameCol();
+    const gradeCols = getGradeCols();
+    const otherCols = headers.filter(h => h !== nameCol && !gradeCols.includes(h));
+
+    const matches = data.filter(r => String(r[nameCol]).toLowerCase().includes(q));
+    const resultsDiv = document.getElementById('results');
+
+    if (!matches.length) {
+      resultsDiv.innerHTML = `
+        <div class="no-results">
+          <span class="emoji">🔎</span>
+          <p>No se encontró ningún alumno con ese nombre.</p>
+        </div>`;
+      return;
+    }
+
+    resultsDiv.innerHTML = matches.map(r => {
+      const name = r[nameCol] || '—';
+      const initials = String(name).split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+      const grades = gradeCols.map(c => ({ label: c, value: r[c] }));
+
+      // Calculate promedio from numeric grade cols
+      const numericGrades = grades.filter(g => !isNaN(parseFloat(g.value)) && String(g.label).toLowerCase().includes('promedio') === false);
+      const promedioCol = gradeCols.find(c => c.toLowerCase().includes('promedio') || c.toLowerCase().includes('final'));
+      let promedio = promedioCol ? parseFloat(r[promedioCol]) : NaN;
+      if (isNaN(promedio) && numericGrades.length) {
+        promedio = numericGrades.reduce((a,b)=>a+parseFloat(b.value),0)/numericGrades.length;
+      }
+
+      const aprobado = !isNaN(promedio) && promedio >= 6;
+      const promedioStr = isNaN(promedio) ? '—' : promedio.toFixed(1);
+
+      const otherRows = otherCols.map(c =>
+        `<tr><td>${c}</td><td>${r[c] !== undefined && r[c] !== '' ? r[c] : '—'}</td></tr>`
+      ).join('');
+
+      const gradesCells = grades.map(g => {
+        const v = parseFloat(g.value);
+        const cls = isNaN(v) ? 'text-val' : gradeClass(v);
+        return `<div class="grade-cell">
+          <div class="grade-label">${g.label}</div>
+          <div class="grade-value ${cls}">${g.value !== undefined && g.value !== '' ? g.value : '—'}</div>
+        </div>`;
+      }).join('');
+
+      return `
+        <div class="result-card" style="animation:fadeUp 0.4s ease both">
+          <div class="result-header">
+            <div class="avatar">${initials}</div>
+            <div>
+              <h2>${name}</h2>
+              <div class="result-meta">
+                ${otherCols.slice(0,3).map(c => `<span class="meta-chip">${c}: ${r[c] || '—'}</span>`).join('')}
+              </div>
+            </div>
+          </div>
+
+          ${grades.length ? `<div class="grades-grid">${gradesCells}</div>` : ''}
+
+          ${otherRows ? `<table class="extra-table">${otherRows}</table>` : ''}
+
+          <div class="promedio-banner">
+            <div>
+              <div class="promedio-label">Promedio General</div>
+              <div class="promedio-val ${isNaN(promedio)?'':gradeClass(promedio)}">${promedioStr}</div>
+            </div>
+            ${!isNaN(promedio) ? `<span class="status-badge ${aprobado?'aprobado':'reprobado'}">${aprobado?'✓ APROBADO':'✗ REPROBADO'}</span>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+  }
+</script>
+</body>
+</html>
