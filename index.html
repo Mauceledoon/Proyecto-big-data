@@ -451,9 +451,9 @@
   }
 
   .status-badge.reprobado {
-    background: rgba(244,63,94,0.15);
-    color: var(--danger);
-    border: 1px solid rgba(244,63,94,0.3);
+    background: rgba(244,63,94,0.2) !important;
+    color: var(--danger) !important;
+    border: 1px solid rgba(244,63,94,0.4) !important;
   }
 
   /* Extra data table */
@@ -774,8 +774,8 @@
         promedio = numericGrades.reduce((a,b)=>a+parseFloat(b.value),0)/numericGrades.length;
       }
 
-      const aprobado = !isNaN(promedio) && promedio >= 7;
-      const promedioStr = isNaN(promedio) ? '—' : promedio.toFixed(1);
+      const aprobado = !isNaN(promedio) && Number(promedio) >= 6;
+      const promedioStr = isNaN(promedio) ? '—' : Number(promedio).toFixed(1);
 
       const otherRows = otherCols.map(c =>
         `<tr><td>${c}</td><td>${r[c] !== undefined && r[c] !== '' ? r[c] : '—'}</td></tr>`
